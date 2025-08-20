@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>動画ストップウォッチレコーダー</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto 20px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+
+        video, canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .control-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 10px;
+        }
+
+        .control-section h3 {
+            margin-bottom: 10px;
+            color: #555;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(250, 112, 154, 0.4);
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            background: #f0f0f0;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .recording {
+            background: #ffe4e4;
+            animation: pulse 1.5s infinite;
+        }
+
+        .timer-running {
+            background: #e4f4ff;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .timer-display {
+            text-align: center;
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+        }
+
+        .downloads {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+        }
+
+        .downloads h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .download-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .download-item a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .download-item a:hover {
+            text-decoration: underline;
+        }
+
+        .error {
+            background: #ffe4e4;
+            color: #d00;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .indicator.active {
+            background: #4caf50;
+            animation: blink 1s infinite;
+        }
+
+        .indicator.inactive {
+            background: #ccc;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+
+            .timer-display {
+                font-size: 24px;
+            }
+
+            .status {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 動画ストップウォッチレコーダー</h1>
+        
+        <div id="error-message" class="error" style="display: none;"></div>
+        
+        <div class="video-container">
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="timer-display" id="timerDisplay">00:00:00.00</div>
+        
+        <div class="status" id="status">
+            <div class="status-item">
+                <span class="status-label">録画状態</span>
+                <span class="status-value">
+                    <span id="recordIndicator" class="indicator inactive"></span>
+                    <span id="recordStatus">停止中</span>
+                </span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">タイマー状態</span>
+                <span class="status-value">
+                    <span id="timerIndicator" class="indicator inactive"></span>
+                    <span id="timerStatus">停止中</span>
+                </span>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>🎬 録画コントロール</h3>
+            <div class="controls">
+                <button id="startRecordBtn" class="btn-primary" disabled>録画開始</button>
+                <button id="pauseRecordBtn" class="btn-warning" disabled>録画一時停止</button>
+                <button id="resumeRecordBtn" class="btn-success" disabled style="display: none;">録画再開</button>
+                <button id="stopRecordBtn" class="btn-danger" disabled>録画停止</button>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>⏱️ ストップウォッチコントロール</h3>
+            <div class="controls">
+                <button id="startTimerBtn" class="btn-primary">タイマー開始</button>
+                <button id="pauseTimerBtn" class="btn-warning" disabled>タイマー一時停止</button>
+                <button id="resumeTimerBtn" class="btn-success" disabled style="display: none;">タイマー再開</button>
+                <button id="resetTimerBtn" class="btn-danger">タイマーリセット</button>
+            </div>
+        </div>
+        
+        <div id="downloads" class="downloads" style="display: none;">
+            <h3>📥 録画済み動画</h3>
+            <div id="downloadList"></div>
+        </div>
+    </div>
+
+    <script>
+        class VideoStopwatchRecorder {
+            constructor() {
+                // DOM要素
+                this.video = document.getElementById('video');
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.timerDisplay = document.getElementById('timerDisplay');
+                this.downloads = document.getElementById('downloads');
+                this.downloadList = document.getElementById('downloadList');
+                this.errorMessage = document.getElementById('error-message');
+                
+                // 録画関連ボタン
+                this.startRecordBtn = document.getElementById('startRecordBtn');
+                this.pauseRecordBtn = document.getElementById('pauseRecordBtn');
+                this.resumeRecordBtn = document.getElementById('resumeRecordBtn');
+                this.stopRecordBtn = document.getElementById('stopRecordBtn');
+                
+                // タイマー関連ボタン
+                this.startTimerBtn = document.getElementById('startTimerBtn');
+                this.pauseTimerBtn = document.getElementById('pauseTimerBtn');
+                this.resumeTimerBtn = document.getElementById('resumeTimerBtn');
+                this.resetTimerBtn = document.getElementById('resetTimerBtn');
+                
+                // ステータス表示
+                this.recordStatus = document.getElementById('recordStatus');
+                this.timerStatus = document.getElementById('timerStatus');
+                this.recordIndicator = document.getElementById('recordIndicator');
+                this.timerIndicator = document.getElementById('timerIndicator');
+                this.statusEl = document.getElementById('status');
+                
+                // 録画関連
+                this.mediaRecorder = null;
+                this.recordedChunks = [];
+                this.stream = null;
+                this.canvasStream = null;
+                this.isRecording = false;
+                this.isRecordingPaused = false;
+                
+                // タイマー関連
+                this.timerStartTime = null;
+                this.timerPausedTime = 0;
+                this.isTimerRunning = false;
+                this.isTimerPaused = false;
+                
+                // アニメーション
+                this.animationId = null;
+                this.recordingCount = 0;
+                
+                this.init();
+            }
+            
+            async init() {
+                try {
+                    // カメラの許可を要求
+                    this.stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user'
+                        }, 
+                        audio: true 
+                    });
+                    
+                    this.video.srcObject = this.stream;
+                    
+                    // ビデオのメタデータが読み込まれたらCanvasを設定
+                    this.video.onloadedmetadata = () => {
+                        this.setupCanvas();
+                        this.startRecordBtn.disabled = false;
+                        this.hideError();
+                        this.updateStatus();
+                    };
+                    
+                    this.setupEventListeners();
+                    
+                } catch (error) {
+                    this.showError('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
+                    console.error('Error accessing camera:', error);
+                }
+            }
+            
+            setupCanvas() {
+                // Canvasのサイズをビデオと同じに設定
+                this.canvas.width = this.video.videoWidth;
+                this.canvas.height = this.video.videoHeight;
+                // 初期フレームを描画
+                this.animate();
+            }
+            
+            setupEventListeners() {
+                // 録画コントロール
+                this.startRecordBtn.addEventListener('click', () => this.startRecording());
+                this.pauseRecordBtn.addEventListener('click', () => this.pauseRecording());
+                this.resumeRecordBtn.addEventListener('click', () => this.resumeRecording());
+                this.stopRecordBtn.addEventListener('click', () => this.stopRecording());
+                
+                // タイマーコントロール
+                this.startTimerBtn.addEventListener('click', () => this.startTimer());
+                this.pauseTimerBtn.addEventListener('click', () => this.pauseTimer());
+                this.resumeTimerBtn.addEventListener('click', () => this.resumeTimer());
+                this.resetTimerBtn.addEventListener('click', () => this.resetTimer());
+            }
+            
+            // 録画関連メソッド
+            startRecording() {
+                this.recordedChunks = [];
+                this.isRecording = true;
+                this.isRecordingPaused = false;
+                
+                // Canvas streamを取得
+                this.canvasStream = this.canvas.captureStream(30); // 30 FPS
+                
+                // オーディオトラックを追加
+                const audioTracks = this.stream.getAudioTracks();
+                if (audioTracks.length > 0) {
+                    this.canvasStream.addTrack(audioTracks[0]);
+                }
+                
+                // MediaRecorderを設定
+                const options = {
+                    mimeType: 'video/webm;codecs=vp9,opus'
+                };
+                
+                // フォールバック用のMIMEタイプ
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options.mimeType = 'video/webm;codecs=vp8,opus';
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options.mimeType = 'video/webm';
+                    }
+                }
+                
+                try {
+                    this.mediaRecorder = new MediaRecorder(this.canvasStream, options);
+                    
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.recordedChunks.push(event.data);
+                        }
+                    };
+                    
+                    this.mediaRecorder.onstop = () => {
+                        this.saveRecording();
+                    };
+                    
+                    this.mediaRecorder.start(100); // 100msごとにデータを取得
+                    
+                    // UIを更新
+                    this.startRecordBtn.disabled = true;
+                    this.pauseRecordBtn.disabled = false;
+                    this.stopRecordBtn.disabled = false;
+                    this.updateStatus();
+                    
+                } catch (error) {
+                    this.showError('録画の開始に失敗しました。');
+                    console.error('Error starting recording:', error);
+                }
+            }
+            
+            pauseRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.pause();
+                    this.isRecordingPaused = true;
+                    
+                    this.pauseRecordBtn.style.display = 'none';
+                    this.resumeRecordBtn.style.display = 'inline-block';
+                    this.resumeRecordBtn.disabled = false;
+                    this.updateStatus();
+                }
+            }
+            
+            resumeRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
+                    this.mediaRecorder.resume();
+                    this.isRecordingPaused = false;
+                    
+                    this.resumeRecordBtn.style.display = 'none';
+                    this.pauseRecordBtn.style.display = 'inline-block';
+                    this.updateStatus();
+                }
+            }
+            
+            stopRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                    this.isRecording = false;
+                    this.isRecordingPaused = false;
+                    this.mediaRecorder.stop();
+                    
+                    // UIを更新
+                    this.startRecordBtn.disabled = false;
+                    this.pauseRecordBtn.disabled = true;
+                    this.resumeRecordBtn.disabled = true;
+                    this.stopRecordBtn.disabled = true;
+                    this.resumeRecordBtn.style.display = 'none';
+                    this.pauseRecordBtn.style.display = 'inline-block';
+                    this.updateStatus();
+                }
+            }
+            
+            // タイマー関連メソッド
+            startTimer() {
+                this.timerStartTime = Date.now();
+                this.timerPausedTime = 0;
+                this.isTimerRunning = true;
+                this.isTimerPaused = false;
+                
+                this.startTimerBtn.disabled = true;
+                this.pauseTimerBtn.disabled = false;
+                this.resetTimerBtn.disabled = false;
+                this.updateStatus();
+            }
+            
+            pauseTimer() {
+                if (this.isTimerRunning && !this.isTimerPaused) {
+                    this.isTimerPaused = true;
+                    this.timerPausedTime += Date.now() - this.timerStartTime;
+                    
+                    this.pauseTimerBtn.style.display = 'none';
+                    this.resumeTimerBtn.style.display = 'inline-block';
+                    this.resumeTimerBtn.disabled = false;
+                    this.updateStatus();
+                }
+            }
+            
+            resumeTimer() {
+                if (this.isTimerRunning && this.isTimerPaused) {
+                    this.isTimerPaused = false;
+                    this.timerStartTime = Date.now();
+                    
+                    this.resumeTimerBtn.style.display = 'none';
+                    this.pauseTimerBtn.style.display = 'inline-block';
+                    this.updateStatus();
+                }
+            }
+            
+            resetTimer() {
+                this.timerStartTime = null;
+                this.timerPausedTime = 0;
+                this.isTimerRunning = false;
+                this.isTimerPaused = false;
+                
+                this.startTimerBtn.disabled = false;
+                this.pauseTimerBtn.disabled = true;
+                this.resumeTimerBtn.disabled = true;
+                this.resumeTimerBtn.style.display = 'none';
+                this.pauseTimerBtn.style.display = 'inline-block';
+                this.timerDisplay.textContent = '00:00:00.00';
+                this.updateStatus();
+            }
+            
+            saveRecording() {
+                const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const timestamp = new Date().toLocaleString('ja-JP').replace(/[/:]/g, '-').replace(' ', '_');
+                const filename = `recording_${timestamp}.webm`;
+                
+                this.recordingCount++;
+                this.addDownloadLink(url, filename);
+                
+                this.downloads.style.display = 'block';
+            }
+            
+            addDownloadLink(url, filename) {
+                const downloadItem = document.createElement('div');
+                downloadItem.className = 'download-item';
+                downloadItem.innerHTML = `
+                    <span>📹 ${filename}</span>
+                    <a href="${url}" download="${filename}">ダウンロード</a>
+                `;
+                this.downloadList.insertBefore(downloadItem, this.downloadList.firstChild);
+            }
+            
+            animate() {
+                // ビデオフレームをCanvasに描画
+                this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+                
+                // タイマーが動いている場合のみストップウォッチを描画
+                if (this.isTimerRunning) {
+                    this.drawStopwatch();
+                }
+                
+                // 次のフレームをリクエスト
+                this.animationId = requestAnimationFrame(() => this.animate());
+            }
+            
+            drawStopwatch() {
+                let elapsed = 0;
+                if (!this.isTimerPaused) {
+                    elapsed = this.timerPausedTime + (Date.now() - this.timerStartTime);
+                } else {
+                    elapsed = this.timerPausedTime;
+                }
+                
+                const time = this.formatTime(elapsed);
+                this.timerDisplay.textContent = time;
+                
+                // 背景を描画（半透明の黒）
+                const padding = 15;
+                const fontSize = 32;
+                this.ctx.font = `bold ${fontSize}px Arial`;
+                const textWidth = this.ctx.measureText(time).width;
+                
+                const x = this.canvas.width - textWidth - padding * 2;
+                const y = padding;
+                
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                this.ctx.fillRect(x - padding, y, textWidth + padding * 2, fontSize + padding);
+                
+                // テキストを描画（白色）
+                this.ctx.fillStyle = 'white';
+                this.ctx.fillText(time, x, y + fontSize);
+                
+                // タイマー動作中インジケータ（緑の丸）
+                if (!this.isTimerPaused) {
+                    this.ctx.fillStyle = '#4caf50';
+                    this.ctx.beginPath();
+                    this.ctx.arc(x - padding - 20, y + fontSize / 2 + padding / 2, 8, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+                
+                // 録画中インジケータ（赤い丸）を左側に追加
+                if (this.isRecording && !this.isRecordingPaused) {
+                    this.ctx.fillStyle = 'red';
+                    this.ctx.beginPath();
+                    this.ctx.arc(x - padding - 45, y + fontSize / 2 + padding / 2, 8, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            }
+            
+            formatTime(milliseconds) {
+                const totalSeconds = Math.floor(milliseconds / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+                const centiseconds = Math.floor((milliseconds % 1000) / 10);
+                
+                return `${this.pad(hours)}:${this.pad(minutes)}:${this.pad(seconds)}.${this.pad(centiseconds)}`;
+            }
+            
+            pad(num) {
+                return num.toString().padStart(2, '0');
+            }
+            
+            updateStatus() {
+                // 録画ステータス更新
+                if (this.isRecording) {
+                    if (this.isRecordingPaused) {
+                        this.recordStatus.textContent = '一時停止中';
+                        this.recordIndicator.className = 'indicator inactive';
+                        this.statusEl.classList.remove('recording');
+                    } else {
+                        this.recordStatus.textContent = '録画中';
+                        this.recordIndicator.className = 'indicator active';
+                        this.recordIndicator.style.background = 'red';
+                        this.statusEl.classList.add('recording');
+                    }
+                } else {
+                    this.recordStatus.textContent = '停止中';
+                    this.recordIndicator.className = 'indicator inactive';
+                    this.statusEl.classList.remove('recording');
+                }
+                
+                // タイマーステータス更新
+                if (this.isTimerRunning) {
+                    if (this.isTimerPaused) {
+                        this.timerStatus.textContent = '一時停止中';
+                        this.timerIndicator.className = 'indicator inactive';
+                        this.statusEl.classList.remove('timer-running');
+                    } else {
+                        this.timerStatus.textContent = '計測中';
+                        this.timerIndicator.className = 'indicator active';
+                        this.timerIndicator.style.background = '#4caf50';
+                        this.statusEl.classList.add('timer-running');
+                    }
+                } else {
+                    this.timerStatus.textContent = '停止中';
+                    this.timerIndicator.className = 'indicator inactive';
+                    this.statusEl.classList.remove('timer-running');
+                }
+            }
+            
+            showError(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.style.display = 'block';
+            }
+            
+            hideError() {
+                this.errorMessage.style.display = 'none';
+            }
+        }
+        
+        // アプリケーションを初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            new VideoStopwatchRecorder();
+        });
+    </script>
+</body>
+</html>
