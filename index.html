@@ -256,6 +256,30 @@
             50% { opacity: 0.5; }
         }
 
+        .camera-select {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+
+        .camera-select:hover {
+            border-color: #764ba2;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
+        }
+
+        .camera-select:focus {
+            outline: none;
+            border-color: #764ba2;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 20px;
@@ -312,6 +336,16 @@
         </div>
         
         <div class="control-section">
+            <h3>📷 カメラ設定</h3>
+            <div class="controls">
+                <button id="switchCameraBtn" class="btn-primary">カメラ切替</button>
+                <select id="cameraSelect" class="camera-select" style="display: none;">
+                    <option value="">カメラを選択...</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="control-section">
             <h3>🎬 録画コントロール</h3>
             <div class="controls">
                 <button id="startRecordBtn" class="btn-primary" disabled>録画開始</button>
@@ -361,6 +395,10 @@
                 this.resumeTimerBtn = document.getElementById('resumeTimerBtn');
                 this.resetTimerBtn = document.getElementById('resetTimerBtn');
                 
+                // カメラ関連
+                this.switchCameraBtn = document.getElementById('switchCameraBtn');
+                this.cameraSelect = document.getElementById('cameraSelect');
+                
                 // ステータス表示
                 this.recordStatus = document.getElementById('recordStatus');
                 this.timerStatus = document.getElementById('timerStatus');
@@ -382,6 +420,11 @@
                 this.isTimerRunning = false;
                 this.isTimerPaused = false;
                 
+                // カメラ関連
+                this.cameras = [];
+                this.currentCameraIndex = 0;
+                this.currentDeviceId = null;
+                
                 // アニメーション
                 this.animationId = null;
                 this.recordingCount = 0;
@@ -391,16 +434,92 @@
             
             async init() {
                 try {
-                    // カメラの許可を要求
-                    this.stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { 
+                    // 利用可能なカメラを取得
+                    await this.enumerateCameras();
+                    
+                    // 初期カメラを起動
+                    await this.startCamera();
+                    
+                    this.setupEventListeners();
+                    
+                } catch (error) {
+                    this.showError('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
+                    console.error('Error accessing camera:', error);
+                }
+            }
+            
+            async enumerateCameras() {
+                try {
+                    // まず権限を取得するために一度getUserMediaを呼ぶ
+                    const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    tempStream.getTracks().forEach(track => track.stop());
+                    
+                    // デバイスリストを取得
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    this.cameras = devices.filter(device => device.kind === 'videoinput');
+                    
+                    // カメラが複数ある場合はセレクトボックスを表示
+                    if (this.cameras.length > 1) {
+                        this.setupCameraSelect();
+                    } else {
+                        this.switchCameraBtn.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error enumerating cameras:', error);
+                }
+            }
+            
+            setupCameraSelect() {
+                // セレクトボックスにカメラを追加
+                this.cameraSelect.innerHTML = '';
+                this.cameras.forEach((camera, index) => {
+                    const option = document.createElement('option');
+                    option.value = camera.deviceId;
+                    option.text = camera.label || `カメラ ${index + 1}`;
+                    this.cameraSelect.appendChild(option);
+                });
+                
+                // 切替ボタンのイベント
+                this.switchCameraBtn.addEventListener('click', () => {
+                    if (this.cameraSelect.style.display === 'none') {
+                        this.cameraSelect.style.display = 'inline-block';
+                        this.switchCameraBtn.textContent = '選択をキャンセル';
+                    } else {
+                        this.cameraSelect.style.display = 'none';
+                        this.switchCameraBtn.textContent = 'カメラ切替';
+                    }
+                });
+                
+                // セレクトボックスの変更イベント
+                this.cameraSelect.addEventListener('change', async (e) => {
+                    if (e.target.value) {
+                        this.currentDeviceId = e.target.value;
+                        await this.startCamera(this.currentDeviceId);
+                        this.cameraSelect.style.display = 'none';
+                        this.switchCameraBtn.textContent = 'カメラ切替';
+                    }
+                });
+            }
+            
+            async startCamera(deviceId = null) {
+                try {
+                    // 既存のストリームを停止
+                    if (this.stream) {
+                        this.stream.getTracks().forEach(track => track.stop());
+                    }
+                    
+                    // カメラの制約を設定
+                    const constraints = {
+                        video: {
                             width: { ideal: 1280 },
                             height: { ideal: 720 },
-                            facingMode: 'user'
-                        }, 
-                        audio: true 
-                    });
+                            deviceId: deviceId ? { exact: deviceId } : undefined
+                        },
+                        audio: true
+                    };
                     
+                    // カメラを起動
+                    this.stream = await navigator.mediaDevices.getUserMedia(constraints);
                     this.video.srcObject = this.stream;
                     
                     // ビデオのメタデータが読み込まれたらCanvasを設定
@@ -411,11 +530,9 @@
                         this.updateStatus();
                     };
                     
-                    this.setupEventListeners();
-                    
                 } catch (error) {
-                    this.showError('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
-                    console.error('Error accessing camera:', error);
+                    this.showError('カメラの起動に失敗しました。');
+                    console.error('Error starting camera:', error);
                 }
             }
             
@@ -613,6 +730,9 @@
                 // ビデオフレームをCanvasに描画
                 this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
                 
+                // 中央に鉛直線を描画
+                this.drawCenterLine();
+                
                 // タイマーが動いている場合のみストップウォッチを描画
                 if (this.isTimerRunning) {
                     this.drawStopwatch();
@@ -620,6 +740,24 @@
                 
                 // 次のフレームをリクエスト
                 this.animationId = requestAnimationFrame(() => this.animate());
+            }
+            
+            drawCenterLine() {
+                const centerX = this.canvas.width / 2;
+                
+                // 線のスタイル設定
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                this.ctx.lineWidth = 2;
+                this.ctx.setLineDash([10, 5]); // 破線にする（10px描画、5px空白）
+                
+                // 鉛直線を描画
+                this.ctx.beginPath();
+                this.ctx.moveTo(centerX, 0);
+                this.ctx.lineTo(centerX, this.canvas.height);
+                this.ctx.stroke();
+                
+                // 破線をリセット
+                this.ctx.setLineDash([]);
             }
             
             drawStopwatch() {
